@@ -46,6 +46,8 @@
  * @author Pedro Roque <padr@kth.se>
  */
 
+#include <uORB/topics/vehicle_status.h>
+
 #include "uuv_att_control.hpp"
 
 
@@ -237,6 +239,38 @@ void UUVAttitudeControl::control_attitude_geo(const vehicle_attitude_s &attitude
 
 void UUVAttitudeControl::generate_attitude_setpoint(float dt)
 {
+
+        if (_offboard_uuv_active && _uuv_offboard_sp_sub.update(&_uuv_offboard_sp)) {
+
+		float roll_setpoint  = _uuv_offboard_sp.roll;
+		float pitch_setpoint = _uuv_offboard_sp.pitch;
+
+		roll_setpoint  = math::constrain(roll_setpoint,  -_param_mgm_roll.get(),  _param_mgm_roll.get());
+		pitch_setpoint = math::constrain(pitch_setpoint, -_param_mgm_pitch.get(), _param_mgm_pitch.get());
+
+		float yaw_setpoint;
+
+		if (_uuv_offboard_sp.use_yaw_rate) {
+			_rates_setpoint.yaw = _uuv_offboard_sp.yaw_rate;
+			yaw_setpoint = Eulerf(matrix::Quatf(_attitude_setpoint.q_d)).psi();
+		} else {
+			yaw_setpoint = _uuv_offboard_sp.yaw;
+		}
+
+		Eulerf euler_sp(roll_setpoint, pitch_setpoint, yaw_setpoint);
+		Quatf q_sp = euler_sp;
+		q_sp.normalize();
+		q_sp.copyTo(_attitude_setpoint.q_d);
+
+		_attitude_setpoint.thrust_body[0] = _uuv_offboard_sp.thrust_x;
+		_attitude_setpoint.thrust_body[1] = _uuv_offboard_sp.thrust_y;
+		_attitude_setpoint.thrust_body[2] = _uuv_offboard_sp.thrust_z;
+
+		_attitude_setpoint.timestamp = hrt_absolute_time();
+		return;
+	}
+
+
 	const bool js_heave_sway_mode = joystick_heave_sway_mode();
 
 	// Avoid accumulating absolute yaw error with arming stick gesture
@@ -344,6 +378,11 @@ void UUVAttitudeControl::Run()
 
 	/* check vehicle control mode for changes to publication state */
 	_vcontrol_mode_sub.update(&_vcontrol_mode);
+	vehicle_status_s vehicle_status{};
+        _vehicle_status_sub.copy(&vehicle_status);
+
+        _offboard_uuv_active =
+        (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD);
 
 	/* update parameters from storage */
 	parameters_update();

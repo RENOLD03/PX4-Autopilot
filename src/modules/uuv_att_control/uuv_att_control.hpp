@@ -63,12 +63,14 @@
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_thrust_setpoint.h>
 #include <uORB/topics/vehicle_torque_setpoint.h>
+#include <uORB/topics/uuv_offboard_setpoint.h>
 #include <uORB/uORB.h>
 
 using matrix::Eulerf;
@@ -114,9 +116,11 @@ private:
 	uORB::Subscription _angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};	/**< vehicle angular velocity subscription */
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};	/**< notification of manual control updates */
 	uORB::Subscription _vcontrol_mode_sub{ORB_ID(vehicle_control_mode)};		/**< vehicle status subscription */
-
+        uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 	uORB::SubscriptionCallbackWorkItem _vehicle_attitude_sub{this, ORB_ID(vehicle_attitude)};
+	uORB::Subscription _uuv_offboard_sp_sub{ORB_ID(uuv_offboard_setpoint)};
 
+        uuv_offboard_setpoint_s _uuv_offboard_sp{};
 	vehicle_thrust_setpoint_s _vehicle_thrust_setpoint{};
 	vehicle_torque_setpoint_s _vehicle_torque_setpoint{};
 	manual_control_setpoint_s _manual_control_setpoint{};
@@ -172,6 +176,8 @@ private:
 	void generate_rates_setpoint(float dt);
 	void reset_attitude_setpoint(vehicle_attitude_s &v_att);
 	void check_setpoint_validity(vehicle_attitude_s &v_att);
+	bool _offboard_uuv_active{false};
+
 
 	inline bool joystick_heave_sway_mode() const { return _param_stick_mode.get() == 0; }
 };
